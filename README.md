@@ -98,6 +98,74 @@ Predict phases from tweet to support sentiment analysis
     <img src="https://github.com/ShixuanGuo/Tweet_Sentiment_Analysis/blob/master/img/Neutral%20parts%20of%20speech.png" alt="neutral parts of speech" width="607" height="233">  
     
 ## Part 3 Predict selected phrase  
+1. **Preprocessing**  
+    1) Convert sentiment into -1,0 and 1  
+    2) Split data by sentiment  
+    3) Split train and test dataset  
+2. **Get input**  
+    1) Subset of text: use function: `get_subset_list(text)`  
+    2) TF-IDF vectorization  
+    ```python
+    vectorizer = TfidfVectorizer(max_features=1000)  
+    train_text_matrix = vectorizer.fit_transform(train_train['text'].values.astype('U')).toarray()
+    train_matrix_names = vectorizer.get_feature_names() 
+    train_text_matrix_table = pd.DataFrame(np.round(train_text_matrix, 2), columns = train_matrix_names)
+    ```  
+    Head of train set vectorization matrix:  
+    
+    <img src="" alt="TF_IDF matrix" width="607" height="233">  
+    
+    3) Encode start-end position of selected phrase  
+    First, initial tokenizer using Roberta database and encode sentiment:  
+    ```python
+    MAX_LEN = 96
+    tokenizer = tokenizers.ByteLevelBPETokenizer(
+      vocab_file='vocab-roberta-base.json', 
+      merges_file='merges-roberta-base.txt', 
+      lowercase=True,
+      add_prefix_space=True)
+    sentiment_id = {'positive': 1313, 'negative': 2430, 'neutral': 7974}
+    ```  
+    Second, encode train and test inputs and outputs, and tune the inputs' format.  
+    ```python
+    #train
+    input_ids,attention_mask,outputs=get_encoded_train(train_train)
+    inputs=np.concatenate([input_ids,attention_mask],axis=1)
+    outputs=pd.DataFrame(list(zip(start_position,end_position)),columns=['start','end'])
+    #test
+    input_ids_t,attention_mask_t=get_encoded_test(test_train)
+    inputs_t=np.concatenate([input_ids_t,attention_mask_t],axis=1)
+    ```  
+3. **Method 1: Sentiment scoring model**  
+    1) VADER Lexicon
+    ```python
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    analyzer = SentimentIntensityAnalyzer()
+    positive=highest_polarity_text(get_subset_list(text))
+    negative=lowest_polarity_text(get_subset_list(text))
+    ```  
+    2) AFINN Lexicon  
+    ```python
+    from afinn import Afinn
+    af = Afinn()
+    ```  
+    Problem: the text can only distinguish words such as "sad". Under the shorest-length logic, it would only select the one-word instead of a phrase.  
+    
+    3) SentiWordNet Lexicon  
+     I also tried SentiWordNet and other lexicon bases. They did not perform well in this project.  
+   4) Customized sentiment score-SVC score  
+    ```python
+    svm = linear_model.SGDClassifier(loss='hinge', random_state = 0) 
+    train_train['sentiment_n']=train_train['sentiment'].apply(lambda x: convert_sentiment(x))
+    test_train['sentiment_n']=test_train['sentiment'].apply(lambda x: convert_sentiment(x))
+    train_polarity = np.array(train_train['sentiment_n'])
+    test_polarity = np.array(test_train['sentiment_n'])
+    svm.fit(train_text_matris, train_polarity)
+    predicted_svm = svm.predict_proba(test_text_matrix) 
+    ```  
+    Substitute lexicon with SVC model inside the `highest_polarity_text(get_subset_list(text))` function.  
+
+
 1. Evaluate predict accuracy:
     Jaccard similarity for string. 
     ```python
