@@ -3,7 +3,7 @@ Predict phases from tweet to support sentiment analysis
 
 ## Part 1 Project Introduction  
 1. **Problem description**  
-  In this project, I conducted exploratory data analysis for tweets and built different models to predict the part of tweet that reflects the labeled sentiment.   
+  In this project, I conducted exploratory data analysis for tweets and built different models to predict the part of tweet that reflects the labeled sentiment. Use jaccard score as predict accuaracy.   
 2. **Data description**  
   This project use tweet data extracted from [Figure Eight's Data for Everyone platform](https://appen.com/resources/datasets/). The dataset is titled Sentiment Analysis: Emotion in Text tweets with existing sentiment labels, used here under creative commons attribution 4.0. international licence.  
   The file names 'tweet_train.csv', containing
@@ -97,8 +97,8 @@ Predict phases from tweet to support sentiment analysis
     <img src="https://github.com/ShixuanGuo/Tweet_Sentiment_Analysis/blob/master/img/Negative%20parts%20of%20speech.png" alt="negative parts of speech" width="607" height="233">  
     <img src="https://github.com/ShixuanGuo/Tweet_Sentiment_Analysis/blob/master/img/Neutral%20parts%20of%20speech.png" alt="neutral parts of speech" width="607" height="233">  
     
-## Part 3 Predict selected phrase  
-1. **Preprocessing**  
+## Part 3 Preprocessing  
+1. **Split the data**  
     1) Convert sentiment into -1,0 and 1  
     2) Split data by sentiment  
     3) Split train and test dataset  
@@ -136,17 +136,16 @@ Predict phases from tweet to support sentiment analysis
     input_ids_t,attention_mask_t=get_encoded_test(test_train)
     inputs_t=np.concatenate([input_ids_t,attention_mask_t],axis=1)
     ```  
-3. **Method 1: Sentiment scoring model**  
+## Part 4 Best Subset Model
+1. **Sentiment scoring model**  
     1) VADER Lexicon
     ```python
-    from nltk.sentiment.vader import SentimentIntensityAnalyzer
     analyzer = SentimentIntensityAnalyzer()
     positive=highest_polarity_text(get_subset_list(text))
     negative=lowest_polarity_text(get_subset_list(text))
     ```  
     2) AFINN Lexicon  
     ```python
-    from afinn import Afinn
     af = Afinn()
     ```  
     Problem: the text can only distinguish words such as "sad". Under the shorest-length logic, it would only select the one-word instead of a phrase.  
@@ -156,22 +155,81 @@ Predict phases from tweet to support sentiment analysis
    4) Customized sentiment score-SVC score  
     ```python
     svm = linear_model.SGDClassifier(loss='hinge', random_state = 0) 
-    train_train['sentiment_n']=train_train['sentiment'].apply(lambda x: convert_sentiment(x))
-    test_train['sentiment_n']=test_train['sentiment'].apply(lambda x: convert_sentiment(x))
-    train_polarity = np.array(train_train['sentiment_n'])
-    test_polarity = np.array(test_train['sentiment_n'])
     svm.fit(train_text_matris, train_polarity)
     predicted_svm = svm.predict_proba(test_text_matrix) 
     ```  
     Substitute lexicon with SVC model inside the `highest_polarity_text(get_subset_list(text))` function.  
-
-
-1. Evaluate predict accuracy:
-    Jaccard similarity for string. 
+2. **Best subset selection**  
+    1) Positive text strategy  
+    For sentiment score higher than threshold, select the shortest subset. Try different threshold within (0,1) and select the threshold given the highest accuracy.   
     ```python
-    def jaccard(str1, str2): 
-        a = set(str1.lower().split()) 
-        b = set(str2.lower().split())
-        c = a.intersection(b)
-        return float(len(c)) / (len(a) + len(b) - len(c))
+    thresholds = np.linspace(0,1,20)
+    acc_rates = [try_threshold_for_accuracy_positive(threshold) for threshold in thresholds]
+    best_threshold=thresholds[acc_rates.index(max(acc_rates))]
+    select_text_positive_final(corpus_list,best_threshold)
+    ```  
+    <img src="" alt="best threshold" width="607" height="233">  
+    
+    2) Negative text strategy  
+    For sentiment score lower than threshold, select the shortest subset. Select best threshold using the same method.  
+    ```python
+    select_text_negative_final(corpus_list,best_threshold)
+    ```  
+    3) Neutral text strategy  
+    Use text as selected_text. According to our EDA, neutral selected texts are very similar with original texts.  
+
+## Part 5 Machine Learning Model  
+1. **Linear regression multidimensional prediction**  
+    Predictors are original text and sentiment. Responsers are positions of selected text in original text.  
+    1) Fit the model with all data
+    ```python
+    lg=LinearRegression().fit(inputs, outputs)
+    predict_lg=lg.predict(inputs_t)
+    test_train['my_select_lg']=get_my_select(predict_lg,input_ids_t)
+    ```  
+    2) Separately fit the model by sentiment  
+2. **SVR multidimensional prediction**  
+    1) Replace the lg model with SVR.  
+    ```python
+    model = LinearSVR()
+    wrapper = MultiOutputRegressor(model)
     ```
+    2) Try to predict the position as a whole and separately predict start and end position.  
+3. **Random forest multidimensional prediction**  
+    
+## Part 6 Deep Learning: Tensorflow roBERTa  
+1. **Train the model**  
+    Use cross validation to train the roBERTa model and set fold=5. 
+    ```python
+    preds_start = np.zeros((input_ids_t.shape[0],MAX_LEN))
+    preds_end = np.zeros((input_ids_t.shape[0],MAX_LEN))
+    n_splits=5
+    DISPLAY=1
+    for i in range(5):
+        print('#'*25)
+        print('### MODEL %i'%(i+1))
+        print('#'*25)
+
+        K.clear_session()
+        model = build_model()
+        model.load_weights('v4-roberta-%i.h5'%i)
+
+        print('Predicting Test...')
+        preds = model.predict([input_ids_t,attention_mask_t,token_type_ids_t],verbose=DISPLAY)
+        preds_start += preds[0]/n_splits
+        preds_end += preds[1]/n_splits
+    ```
+2. **Make prediction**  
+    ```python
+    predict_text = []
+    for k in range(input_ids_t.shape[0]):
+        a = np.argmax(preds_start[k,])
+        b = np.argmax(preds_end[k,])
+        if a>b: 
+            st = df_test.loc[k,'text']
+        else:
+            text1 = " "+" ".join(df_test.loc[k,'text'].split())
+            enc = tokenizer.encode(text1)
+            st = tokenizer.decode(enc.ids[a-1:b])
+        predict_text.append(st)
+    ```  
