@@ -13,9 +13,9 @@ Predict phases from tweet to support sentiment analysis
 3. **Implemented Algorithms**
     - Exploratory data analysis (EDA)  
     - Prediction Model:  
-        - VADER Lexicon model 
-        - Customized Lexicon score
-        - Machine learning  
+        - Lexicon model: VADER score; Customized Lexicon score  
+        - Machine learning model: Linear regression, SVR 
+        - Deep learning model: Tensorflow roBERTa   
 4. **Packages**  
     - numpy
     - pandas
@@ -113,7 +113,7 @@ Predict phases from tweet to support sentiment analysis
     ```  
     Head of train set vectorization matrix:  
     
-    <img src="" alt="TF_IDF matrix" width="607" height="233">  
+    <img src="https://github.com/ShixuanGuo/Tweet_Sentiment_Analysis/blob/master/img/TF_IDF%20matrix.png" alt="TF_IDF matrix" width="652" height="136">  
     
     3) Encode start-end position of selected phrase  
     First, initial tokenizer using Roberta database and encode sentiment:  
@@ -168,7 +168,7 @@ Predict phases from tweet to support sentiment analysis
     best_threshold=thresholds[acc_rates.index(max(acc_rates))]
     select_text_positive_final(corpus_list,best_threshold)
     ```  
-    <img src="" alt="best threshold" width="607" height="233">  
+    <img src="https://github.com/ShixuanGuo/Tweet_Sentiment_Analysis/blob/master/img/best%20threshold.png" alt="best threshold" width="403" height="294">  
     
     2) Negative text strategy  
     For sentiment score lower than threshold, select the shortest subset. Select best threshold using the same method.  
