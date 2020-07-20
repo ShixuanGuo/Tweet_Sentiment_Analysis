@@ -26,7 +26,7 @@ warnings.simplefilter(action='ignore')
 get_ipython().system('{sys.executable} -m pip install -U textblob')
 
 
-get_ipython().run_line_magic('run', './Text_Normalization_Function.ipynb')
+get_ipython().run_line_magic('run', './Text_Normalization_Function.py')
 
 
 #Plot packages
