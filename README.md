@@ -233,3 +233,8 @@ Predict phases from tweet to support sentiment analysis
             st = tokenizer.decode(enc.ids[a-1:b])
         predict_text.append(st)
     ```  
+## Part 7 Result
+
+  The Deep Learning model had the best performance.  
+  Part of prediction result using Deep Learing model:  
+  <img src="https://github.com/ShixuanGuo/Tweet_Sentiment_Analysis/blob/master/img/result.png" alt="result" width="621" height="162">  
